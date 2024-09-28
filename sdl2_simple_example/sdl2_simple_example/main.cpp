@@ -23,6 +23,16 @@ static const ivec2 WINDOW_SIZE(512, 512);
 static const unsigned int FPS = 60;
 static const auto FRAME_DT = 1.0s / FPS;
 
+float angleX = 0.0f;
+float angleY = 0.0f;
+
+int lastMouseX = 0, lastMouseY = 0;
+bool mouseDragging = false;
+
+unsigned int vaID;
+unsigned int vbID;
+unsigned int ibID;
+
 struct Triangle {
 	vec3 vertex;
 	vec3 vertex1;
@@ -46,69 +56,142 @@ static void draw_triangle(const u8vec4& color, const vec3& center, double size) 
 	glEnd();
 }
 
-static void load_triangle(const Triangle& triangle) {
+static void load_triangle() {
 
-	float positions[] = {
-		triangle.vertex.x, triangle.vertex.y, triangle.vertex.z, triangle.color.x, triangle.color.y, triangle.color.z, triangle.color.w,
-		triangle.vertex1.x, triangle.vertex1.y, triangle.vertex1.z, triangle.color.x, triangle.color.y, triangle.color.z, triangle.color.w,
-		triangle.vertex2.x, triangle.vertex2.y, triangle.vertex2.z, triangle.color.x, triangle.color.y, triangle.color.z, triangle.color.w
+	float positions[] = { // index
+		-0.5, -0.5, 0.0, // 0
+		 0.5, -0.5, 0.0, // 1
+		 0.5,  0.5, 0.0, // 2
+		-0.5,  0.5, 0.0  // 3
 	};
 
-	unsigned int vaID;
+	unsigned int indices[] = {
+		   0, 1, 2, 2, 3, 0
+	};
+
 	glCreateVertexArrays(1, &vaID);
 	glBindVertexArray(vaID);
 
-	unsigned int vbID;
 	glGenBuffers(1, &vbID);
 	glBindBuffer(GL_ARRAY_BUFFER, vbID);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
 
 	glEnableVertexArrayAttrib(vbID, 0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 7, 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
 
-	glEnableVertexArrayAttrib(vbID, 1);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 7, (const void*)12);
+	/*glEnableVertexArrayAttrib(vbID, 1);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 7, (const void*)12);*/
 
-	glBindVertexArray(vaID);
-}
-
-static void make_triangle(Json::Value& data) {
-
-	Triangle triangle;
-
-	triangle.vertex.x = data["position"][0].asFloat();
-	triangle.vertex.y = data["position"][1].asFloat();
-	triangle.vertex.z = data["position"][2].asFloat();
-	triangle.vertex1.x = data["position"][3].asFloat();
-	triangle.vertex1.y = data["position"][4].asFloat();
-	triangle.vertex1.z = data["position"][5].asFloat();
-	triangle.vertex2.x = data["position"][6].asFloat();
-	triangle.vertex2.y = data["position"][7].asFloat();
-	triangle.vertex2.z = data["position"][8].asFloat();
-	triangle.color.x = data["color"][0].asFloat();
-	triangle.color.y = data["color"][1].asFloat();
-	triangle.color.z = data["color"][2].asFloat();
-	triangle.color.w = data["color"][3].asFloat();
-
-	load_triangle(triangle);
-
+	glGenBuffers(1, &ibID);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibID);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned int), indices, GL_STATIC_DRAW);
 }
 
 static void display_func(Json::Value &triangle) {
-	u8vec4 color = { triangle["color"][0].asUInt(), triangle["color"][1].asUInt(),
-		triangle["color"][2].asUInt(), triangle["color"][3].asUInt() };
 
-	vec3 pos = { triangle["center"][0].asFloat(), triangle["center"][1].asFloat(), triangle["center"][2].asFloat() };
+	//camera
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(60.0, static_cast<double>(WINDOW_SIZE.x / WINDOW_SIZE.y), 0.1, 100.0);
 
-	draw_triangle(color, pos, triangle["size"].asFloat());
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(0.0, 2.0, 10.0, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0);
+
+	glRotatef(angleX, 1.0f, 0.0f, 0.0f);
+	glRotatef(angleY, 0.0f, 1.0f, 0.0f);
+
+	vec3 a(-1, 0, 0);
+	vec3 b(1, 0, 0);
+	vec3 c(1, 2, 0);
+	vec3 d(-1, 2, 0);
+
+	//front
+	glBegin(GL_TRIANGLE_FAN);
+	glColor4ub(255, 0, 0, 255);
+	glVertex3d(a.x, a.y, a.z);
+	glVertex3d(b.x, b.y, b.z);
+	glVertex3d(c.x, c.y, c.z);
+	glVertex3d(d.x, d.y, d.z);
+	glEnd();
+
+	//left
+	glBegin(GL_TRIANGLE_FAN);
+	glColor4ub(0, 255, 0, 255);
+	glVertex3d(d.x, d.y, d.z);
+	glVertex3d(d.x, d.y, d.z - 2);
+	glVertex3d(a.x, a.y, a.z - 2);
+	glVertex3d(a.x, a.y, a.z);
+	glEnd();
+
+	//down
+	glBegin(GL_TRIANGLE_FAN);
+	glColor4ub(0, 0, 255, 255);
+	glVertex3d(b.x, b.y, b.z - 2);
+	glVertex3d(b.x, b.y, b.z);
+	glVertex3d(a.x, a.y, a.z);
+	glVertex3d(a.x, a.y, a.z - 2);
+	glEnd();
+
+	//right
+	glBegin(GL_TRIANGLE_FAN);
+	glColor4ub(255, 255, 0, 255);
+	glVertex3d(c.x, c.y, c.z);
+	glVertex3d(c.x, c.y, c.z - 2);
+	glVertex3d(b.x, b.y, b.z - 2);
+	glVertex3d(b.x, b.y, b.z);
+	glEnd();
+
+	//up
+	glBegin(GL_TRIANGLE_FAN);
+	glColor4ub(255, 0, 255, 255);
+	glVertex3d(d.x, d.y, d.z);
+	glVertex3d(c.x, c.y, c.z);
+	glVertex3d(c.x, c.y, c.z - 2);
+	glVertex3d(d.x, d.y, d.z - 2);
+	glEnd();
+
+	//behind
+	glBegin(GL_TRIANGLE_FAN);
+	glColor4ub(0, 255, 255, 255);
+	glVertex3d(a.x, a.y, a.z - 2);
+	glVertex3d(b.x, b.y, b.z - 2);
+	glVertex3d(c.x, c.y, c.z - 2);
+	glVertex3d(d.x, d.y, d.z - 2);
+	glEnd();
 }
 
 static bool processEvents() {
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
+		cout << event.type << endl;
 		switch (event.type) {
 		case SDL_QUIT:
 			return false;
+		case SDL_MOUSEBUTTONDOWN:
+			if (event.button.button == SDL_BUTTON_LEFT) {
+				mouseDragging = true;
+				lastMouseX = event.button.x;
+				lastMouseY = event.button.y;
+			}
+			break;
+		case SDL_MOUSEBUTTONUP:
+			if (event.button.button == SDL_BUTTON_LEFT) {
+				mouseDragging = false;
+			}
+			break;
+		case SDL_MOUSEMOTION:
+			if (mouseDragging) {
+				int deltaX = event.motion.x - lastMouseX;
+				int deltaY = event.motion.y - lastMouseY;
+
+				angleX += deltaY * 0.5f;
+				angleY += deltaX * 0.5f;
+
+				lastMouseX = event.motion.x;
+				lastMouseY = event.motion.y;
+			}
+			break;
 		}
 	}
 	return true;
@@ -127,22 +210,22 @@ int main(int argc, char** argv) {
 
 	init_openGL();
 
-	make_triangle(jsonData["triangle4"]);
+	load_triangle();
 
 	std::unique_ptr<Shader> m_Shader;
 	m_Shader = std::make_unique<Shader>("Basic.shader");
+
+	SDL_Event event;
 
 	while (processEvents()) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		const auto t0 = hrclock::now();
 		display_func(jsonData["triangle"]);
-		display_func(jsonData["triangle1"]);
-		display_func(jsonData["triangle2"]);
-		display_func(jsonData["triangle3"]);
 
 		//probant amb vertexbuffer, vertexarray i shader
 		m_Shader->Bind();
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		//m_Shader->SetUniform1f("u_Angle", );
+		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 		m_Shader->UnBind();
 
 		window.swapBuffers();

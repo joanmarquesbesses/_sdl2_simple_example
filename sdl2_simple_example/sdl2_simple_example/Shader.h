@@ -26,8 +26,12 @@ public:
 	void Bind() const;
 	void UnBind() const;
 
+	void SetUniform1f(const string& name, float value);
+
 private:
 	ShaderProgramSource ParseShader(const std::string& filepath);
 	unsigned int CompileShader(unsigned int type, const std::string& source);
 	unsigned int CreateShader(const std::string& VertexShader, const std::string& FragmentShader);
+
+	int GetUniformLocation(const string& name);
 };

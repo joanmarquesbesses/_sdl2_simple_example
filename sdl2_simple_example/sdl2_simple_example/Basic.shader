@@ -21,5 +21,5 @@ in vec4 v_color;
 
 void main()
 {
-	color = v_color;
+	color = vec4(255, 0, 0, 255);
 };

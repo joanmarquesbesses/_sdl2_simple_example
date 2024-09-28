@@ -107,3 +107,23 @@ void Shader::UnBind() const
 {
     glUseProgram(0);
 }
+
+void Shader::SetUniform1f(const string& name, float value)
+{
+    glUniform1i(GetUniformLocation(name), value);
+}
+
+int Shader::GetUniformLocation(const string& name)
+{
+    if (m_UniformLocationCache.find(name) != m_UniformLocationCache.end()) {
+        return (unsigned int)m_UniformLocationCache[name];
+    }
+
+    int location = glGetUniformLocation(m_RendererID, name.c_str());
+    if (location == -1) {
+        cout << "Warning: uniform '" << name << "' doesn't exist!" << endl;
+    }
+
+    m_UniformLocationCache[name] = location;
+    return (unsigned int)location;
+}
